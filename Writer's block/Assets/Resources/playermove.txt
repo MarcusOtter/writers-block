@@ -1,0 +1,494 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+[RequireComponent(typeof(Rigidbody2D))]
+public class G1_PlayerMovement : MonoBehaviour 
+{	
+	public int groundCheck = 0;
+	public G1_PlayerStats playerStats;
+	
+	private Rigidbody2D rb;
+	private Vector2 movementVec = new Vector2 ();
+
+	//beep boop
+	//random test float
+	public float floob;
+
+	public float runningMaxSpeed = 15;
+
+	public float accelerationForce = 50f; 
+	public float currentSpeed;
+	public float breakForce = 0.15f;
+
+	//normal jump
+	public bool isGrounded = false;
+	public float jumpForce = 15f;
+	//double jump
+	public bool doubleJump = false;
+
+	//walljump
+	public bool onWall = false;
+	public float upForce = 15f;
+	private float sideForce = 5f;
+	public float sideForceStrength = 15f;
+	public bool leftWall = false;
+
+	private Vector2 wallJumpVec = new Vector2();
+
+	private float gravity = 1000f; //staying on ground
+	private float wallSlideForce = 333f; //slide on wall
+
+	private Vector3 jumpStartPos;
+	public float jumpHeight = 5;
+
+	private float jumpTimer = 0.0f;
+	public float jumpTimerMax = 0.3f;
+
+	public bool facingLeft;
+
+	public Vector2 dashDirection = new Vector2(13.0f, 0.5f);
+	public float dashP = 50f;
+
+	public bool dashing = false;
+	public float dashCooldownTimer;
+	public float dashCooldownTimerMax = 3.0f;
+
+	private float dashTimer;
+	public float dashTimerMax = 0.1f;
+
+	public float freezeTime = 2f;
+	public bool playerFrozen = false;
+	private Transform latestCheckpoint;
+
+	public G1_UIHandler uiHandler;
+	public G1_GameController controller;
+
+	public GameObject groundPoof;
+	private Vector3 poofPlace = new Vector3();
+	public float poofOffset;
+
+	public GameObject respawnAnimation;
+
+	public bool sliding;
+	public bool finished;
+
+	[Range (10f, 30f)]
+	public float poofSpeed;
+
+	private bool poof = false;
+    private bool once = false;
+
+	[Range (0f, 20f)]
+	public float xOffset;
+	private Vector3 teleLocation;
+
+	void Start () 
+	{
+		playerStats = GetComponent<G1_PlayerStats> ();
+		rb = GetComponent<Rigidbody2D>();	
+		controller = GameObject.FindGameObjectWithTag ("GameController").GetComponent<G1_GameController>();
+		dashDirection.Normalize ();
+        gravity = 1000f;
+        wallSlideForce = 333f;
+	}
+
+	public bool GetDashing 
+	{
+		get
+		{
+			return dashing;
+		}
+	}
+
+	void Update ()
+	{
+		PlayerInput ();
+
+		if (!dashing) 
+		{
+			PlayerMove ();
+		}
+
+		DescendFunction ();
+		UpdateTimers ();
+	}
+
+
+	void UpdateTimers()
+	{
+		if (dashTimer > 0) 
+		{
+			dashTimer -= Time.deltaTime;
+		}
+
+		if (dashCooldownTimer > 0) 
+		{
+			uiHandler.SetDashSprite (playerStats.playerNumber, false);
+			dashCooldownTimer -= Time.deltaTime;
+		} 
+		else
+		{
+			uiHandler.SetDashSprite (playerStats.playerNumber, true);
+		}
+
+		//Dashkickout
+		if(dashTimer <= 0 && dashing)
+		{
+			dashing = !dashing;
+			dashCooldownTimer = dashCooldownTimerMax;
+
+			//sets the velocity to runningMaxSpeed / 2 after dashing. quik mafs
+			rb.velocity = new Vector2 ((rb.velocity.x / Mathf.Abs (rb.velocity.x + 0.0000001f) * runningMaxSpeed), rb.velocity.y);
+			//added + 0.0000001, because if you divide with 0 you get NaNs and teleport to space. Good times.
+
+		}
+	}
+
+	void PlayerInput ()
+	{
+		if (!playerFrozen)
+		{
+			movementVec.x = Input.GetAxis (playerStats.horizontal) * accelerationForce;
+		} 
+		else
+		{
+			movementVec.x = 0f;
+			rb.velocity = Vector3.zero;
+		}
+
+		if ((Input.GetAxis (playerStats.vertical) < -0.2)) 
+		{
+			sliding = true;
+		}
+		else
+		{
+			sliding = false;
+		}
+
+		if (Input.GetAxis (playerStats.horizontal) > 0) 
+		{
+			facingLeft = false;
+		}
+		else if (Input.GetAxis (playerStats.horizontal) < 0) 
+		{
+			facingLeft = true;
+		}
+
+		if (Input.GetButtonDown (playerStats.btn2) && (isGrounded) && !playerFrozen && !controller.isPaused) 
+		{
+			Jump ();
+			jumpTimer = jumpTimerMax;
+			doubleJump = false;
+		} 
+		else if (Input.GetButtonDown (playerStats.btn1) && dashCooldownTimer <= 0 && !dashing && !playerFrozen && !controller.isPaused) 
+		{
+			Dash ();
+		} 
+		else if (Input.GetButtonDown (playerStats.btn2) && onWall) 
+		{
+			WallJump ();
+			jumpTimer = jumpTimerMax;
+			doubleJump = false;
+		} 
+
+		//Double jump
+		else if (Input.GetButtonDown (playerStats.btn2) && (!doubleJump) && !playerFrozen && !controller.isPaused) 
+		{	
+			Jump ();
+			//jumpTimer = jumpTimerMax;
+			doubleJump = true;
+		} 
+
+
+		//wallstop to cause slide
+		if (onWall) 
+		{
+			if (leftWall)
+			{
+				if (movementVec.x < 0.0f) 
+				{
+					movementVec.x = 0.0f;
+				}
+			} 
+			else 
+			{
+				if (movementVec.x > 0.0f) 
+				{
+					movementVec.x = 0.0f;
+				}
+			}
+		}
+	}
+
+	void Dash()
+	{	
+		dashing = true;
+		dashTimer = dashTimerMax;
+		rb.velocity = Vector2.zero;
+
+		if (facingLeft) 
+		{
+			rb.AddForce (new Vector2(-dashDirection.x,dashDirection.y) *  dashP, ForceMode2D.Impulse);
+		}
+		else 
+		{
+			rb.AddForce (dashDirection * dashP, ForceMode2D.Impulse);
+		}
+		playerStats.playerUseStats.dashes++;
+		playerStats.audioManager.InstantiateSound (playerStats.audioManager.dashSound, 1, false);
+	}
+
+	void Jump()
+	{
+		rb.velocity = new Vector2 (rb.velocity.x, 0.0f);
+		jumpStartPos = transform.position;
+		rb.AddForce(new Vector2 (0f, jumpForce), ForceMode2D.Impulse);
+		isGrounded = false;
+		playerStats.playerUseStats.jumps++;
+		playerStats.audioManager.InstantiateSound(playerStats.audioManager.jumpSound, 0.9f, true);
+	}
+
+
+	void PlayerMove ()
+	{
+		currentSpeed = (Mathf.Abs(rb.velocity.x));
+
+		if (currentSpeed < runningMaxSpeed) 
+		{
+			rb.AddForce (movementVec, ForceMode2D.Force);
+		} 
+		else 
+		{
+			float breakMultiplier;
+
+			//more break on the ground than in the air
+			if (isGrounded) 
+			{
+				breakMultiplier = 0.99f;
+			} 
+
+			else 
+			{
+				breakMultiplier = 0.995f;
+			}
+
+			//break if going too fast
+			rb.velocity = new Vector2 (rb.velocity.x * (breakMultiplier), rb.velocity.y);
+
+		}
+
+		if (groundCheck > 0) {
+			doubleJump = false;
+			isGrounded = true;
+		} else {
+			isGrounded = false;
+		}
+
+	    //Compare horizontal against velocity and apply breakforce if things
+        if (Input.GetAxis(playerStats.horizontal) > 0 && rb.velocity.x < 0 && !dashing && isGrounded && !sliding)
+        {
+            rb.velocity = new Vector2((rb.velocity.x * (1 - breakForce)), rb.velocity.y);
+        }
+        else if (Input.GetAxis(playerStats.horizontal) < 0 && rb.velocity.x > 0 && !dashing && isGrounded && !sliding)
+        {
+            rb.velocity = new Vector2((rb.velocity.x * (1 - breakForce)), rb.velocity.y);
+        }
+
+		if (Mathf.Abs(Input.GetAxis(playerStats.horizontal)) < 0.2 && !dashing && isGrounded && !sliding)
+		{
+			rb.velocity = new Vector2 ((rb.velocity.x * (1 - breakForce)), rb.velocity.y);
+		}
+	}
+
+	public void WeaponKnockback(Vector2 knockForce)
+	{
+		rb.AddForce (knockForce, ForceMode2D.Impulse);
+	}
+
+	void WallJump ()
+	{
+		rb.velocity = new Vector2 (rb.velocity.x, 0.0f);
+		if (!leftWall) 
+		{
+			sideForce = -Mathf.Abs(sideForceStrength);
+		}
+		else 
+		{
+			sideForce = Mathf.Abs(sideForceStrength);
+		}
+
+		wallJumpVec = new Vector2 (sideForce, upForce);
+
+		rb.AddForce (wallJumpVec, ForceMode2D.Impulse);
+		jumpStartPos = transform.position;
+		playerStats.playerUseStats.jumps++;
+		playerStats.spriteHandler.SetJump (true);
+		playerStats.audioManager.InstantiateSound(playerStats.audioManager.jumpSound, 0.9f, true);
+
+	}
+
+	IEnumerator FreezePlayer(float duration)
+	{
+		playerFrozen = true;
+		yield return new WaitForSeconds (duration);
+		playerFrozen = false;
+	}
+
+	void OnTriggerStay2D (Collider2D col)
+	{
+		if (col.gameObject.CompareTag ("EndGame")) 
+		{
+			finished = true;
+			
+			if (playerStats.otherPlayer.GetComponent<G1_PlayerMovement> ().finished) 
+			{
+				controller.endScreen.SetActive (true);
+
+				if (playerStats.playerUseStats.attacksHit > 0) 
+				{
+					playerStats.playerUseStats.attacksDoneHitRatio = (float)playerStats.playerUseStats.attacksDone / (float)playerStats.playerUseStats.attacksHit;
+				}
+
+				if (playerStats.otherPlayer.GetComponent<G1_PlayerStats> ().playerUseStats.attacksHit > 0)
+				{
+					playerStats.otherPlayer.GetComponent<G1_PlayerStats> ().playerUseStats.attacksDoneHitRatio = (float)playerStats.otherPlayer.GetComponent<G1_PlayerStats> ().playerUseStats.attacksDone / (float)playerStats.otherPlayer.GetComponent<G1_PlayerStats> ().playerUseStats.attacksHit;
+				}
+
+				uiHandler.EndScreenText (playerStats.playerNumber, playerStats.playerUseStats);
+				uiHandler.EndScreenText (playerStats.otherPlayer.GetComponent<G1_PlayerStats> ().playerNumber, playerStats.otherPlayer.GetComponent<G1_PlayerStats> ().playerUseStats);
+
+				controller.Pause ();
+			}
+			else
+			{
+                if(!once){
+                    playerFrozen = true;
+                    playerStats.runTimer = false;
+                    if (playerStats.playerNumber == 1)
+                    {
+                        Camera.main.GetComponent<G1_CameraMovement>().player1 = null;
+                    } 
+                    else if(playerStats.playerNumber == 2)
+                    {
+                        Camera.main.GetComponent<G1_CameraMovement>().player2 = null;
+                    }
+                    once = true;
+                }
+
+			}
+
+		}
+
+		if (col.gameObject.CompareTag ("Checkpoint"))
+		{
+			latestCheckpoint = col.transform;
+			col.transform.GetChild (playerStats.playerNumber -1).gameObject.SetActive (true);
+		}
+
+		if (col.gameObject.CompareTag ("Spikes")) {
+			teleLocation = latestCheckpoint.position;
+			StartCoroutine (FreezePlayer (freezeTime));
+			transform.position = latestCheckpoint.position;
+			Instantiate (respawnAnimation, latestCheckpoint, true);
+			playerStats.playerUseStats.respawns++;
+			Instantiate (respawnAnimation, teleLocation, transform.rotation);
+		}
+
+		if (col.gameObject.CompareTag ("Floor")) 
+		{
+			onWall = false;
+
+			if (playerStats.audioManager.fallingSounds.Count != 0)
+			{
+				playerStats.audioManager.fallingSounds [0].GetComponent<G1_ASound> ().Remove ();
+			}
+		}
+		else if ((col.gameObject.CompareTag ("RightWall") || col.gameObject.CompareTag ("LeftWall"))) //&& !isGrounded) 
+		{
+			onWall = true;
+
+
+			if (col.gameObject.CompareTag("LeftWall")) 
+			{
+				leftWall = true;
+				if (rb.velocity.x < 0.0f) {
+					rb.velocity = new Vector2 (0.0f, rb.velocity.y);
+				}
+			}
+			else
+			{
+				leftWall = false;
+				if (rb.velocity.x > 0.0f) {
+					rb.velocity = new Vector2 (0.0f, rb.velocity.y);
+				}
+			}
+		}
+	}
+
+	void OnTriggerEnter2D (Collider2D col)
+	{
+		if (col.gameObject.CompareTag ("Floor")) 
+		{
+			if (groundCheck == 0){// && rb.velocity.y < -0.5f) {
+				TheGroundPoof();
+			}
+			groundCheck++;
+		}
+	}
+
+	void OnTriggerExit2D (Collider2D col)
+	{
+		if (col.gameObject.CompareTag ("Floor")) 
+		{
+			groundCheck--;
+		}
+
+		if (col.gameObject.CompareTag("RightWall") || col.gameObject.CompareTag("LeftWall"))
+		{
+			onWall = false;
+		}
+	}
+
+	void DescendFunction()
+	{
+		if((jumpTimer > 0.0f) && (Input.GetButton(playerStats.btn2)))
+		{
+			jumpTimer -= Time.deltaTime;
+        }
+		else if (!dashing && !onWall) 
+		{
+            rb.AddForce (Vector2.down * gravity * rb.mass * Time.deltaTime, ForceMode2D.Force);
+		} 
+		else if (onWall) 
+		{
+			if (rb.velocity.y > 0) {
+				rb.AddForce (Vector2.down * gravity * rb.mass * Time.deltaTime, ForceMode2D.Force);
+			} else {
+				rb.AddForce (Vector2.down * wallSlideForce * rb.mass * Time.deltaTime, ForceMode2D.Force);
+			}
+		}
+
+        // Commented out during ReFloob for less confusion, it is unused.
+        /*
+		if (transform.position.y > jumpStartPos.y + jumpHeight) 
+		{ // player need to hit certain height to start falling
+			jumpStartPos = Vector3.zero;
+		}
+        */
+
+		if (rb.velocity.y < -10.0f) {
+			poof = true;
+		} else {
+			poof = false;
+		}
+	}
+	void TheGroundPoof(){
+		if (poof) {
+		poofPlace = (transform.position + (Vector3.down * poofOffset)); 
+		Instantiate (groundPoof, poofPlace, transform.rotation);
+		}
+		poof = false;
+	}
+
+}

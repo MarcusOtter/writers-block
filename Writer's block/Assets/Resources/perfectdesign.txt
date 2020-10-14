@@ -1,0 +1,100 @@
+Overview
+
+2D 
+PVP 
+Platformer
+2 Players
+Get from point A to point B before your opponent (but killing ur opponent is more important
+Satisfying movement
+
+KNOWN BUGS:
+Bug:
+Cause:
+Potential fix:
+
+
+
+Plausible things:
+Get through banan to collects weapons and items to later use them in a fight between the two players. 
+super cool loot 
+You have a certain amount of time to get to the place where you fight. So collect your shit and be there on time before the gate closes!!. 
+Camera zoom out if players are close to the edges.
+Start game with camera at fight area. Pan the view to the players and then allow the players to move. 
+diff music for course & last fight room. course should be build-up
+(Questions: Do we defeat monsters to get items? How do we do movment?)
+(Movestick= Move, first button = jump, second button = Slash/attack/Shoot and third button = Extra/interact/pick up)
+
+
+
+Important movement stuff:
+Double jump
+✓Wall jump
+✓Art tho?
+(-Pixel?)
+✓Vector?
+(-3D?)
+[Moon gravity? Maybe something can toggle gravity, or it can be changed in settings before going into the game?]
+
+✓=Done!
+()= Decided not to use, only counts if blue.(so that we can use normal ().
+[]=Haven’t discussed.
+
+
+
+✓Fixa timer till att glida på väggarna. Text att man clampar fall hastigheten nät spelaren rör väggen och den är clampad under text 3 sec dvs en timer. Sedan efter tex 3 secs kommer spelaren falla som vanligt igen.
+
+
+What have we done so far?
+V.49
+So far we have a working movement,jump and wallslide/glide script(s). We are working on the dash script. We have a working “sword” wosh. Dvs can damage other players. We are working on movement animations and almost have a functioning first map/lvl.(also moving platforms yay!) We have a back drop and sword textures(no sword animations yet).
+
+
+[Theme?]
+[Fantasy?]
+[Horror?]
+[Bright?]
+[Dark?]
+[And so on]
+
+Stuff to ponder apout:(I’ll try to make this sound better later).
+
+✓Vapen, kan bara hålla 1.
+
+Dash, (och dash i strid).
+
+[Kan ha två “rörelse” dvs hoppa två gånger eller hoppa och sedan använda dash.
+Flera rundor].
+
+Kan dö i “banan” och på 1v1 arenan
+
+Spikes. Kan ta damage på/i banan
+
+✓(sorta)Knappas som man använder = Dash, slåss och hoppa.(Just nu)
+
+Vapen på kartan = flera. Om man inte får något vapen får man automatiskt ett “dåligt” vapen.
+
+Kan dö av “miljön” på 1v1 arenan. Dvs av spikes eller liknande
+
+
+
+Old ideas
+
+Genre Förslag: 
+
+Dungeon crawling in his crawl 
+Zelda first game thing w open thing and sword w world and walk with legs that you have that you got prolly from your mom or dad either is fine. (Open world stabby things)(And shooty thing if you have full health)
+Pvp platformer (Duck game, Lethal League, etc)
+something something cool movement like (Dustforce, SpeedRunners, Ninja gaiden, Super Meat Boy, mega man x)
+Shoooter??(2d shooteronie but in 3D)
+something something projectiles (lethal league, [insert tennis game here]
+Super smash?????(Or?)(Is that plausible?)
+what if the 2 players do different thing?????
+grappling hooks : )
+hang gliders
+in the hunt
+
+
+
+Mechanics that we removed.
+Damage players with balls
+Grappling hooks :´ )
